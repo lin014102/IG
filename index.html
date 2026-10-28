@@ -15,12 +15,12 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* iOS Safe Area Padding Support for Notch / Dynamic Island */
-        .pt-safe {
-            padding-top: max(env(safe-area-inset-top, 16px), 16px);
+        /* 強制確保 iPhone 頂部安全距離，絕不被動態島/時間列覆蓋 */
+        .ios-safe-header {
+            padding-top: max(env(safe-area-inset-top, 48px), 48px);
         }
         .pb-safe {
-            padding-bottom: max(env(safe-area-inset-bottom, 16px), 16px);
+            padding-bottom: max(env(safe-area-inset-bottom, 24px), 24px);
         }
         .gradient-text {
             background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
@@ -45,11 +45,11 @@
 </head>
 <body class="h-full flex flex-col font-sans antialiased bg-slate-900 text-slate-100 overflow-x-hidden">
 
-    <!-- Header (with safe area top padding to prevent iOS notch blocking) -->
-    <header class="border-b border-slate-800 bg-slate-950/95 backdrop-blur sticky top-0 z-30 pt-safe pb-2">
-        <div class="max-w-4xl mx-auto px-4 flex items-center justify-between gap-2">
-            <div class="flex items-center space-x-2 min-w-0">
-                <div class="w-8 h-8 rounded-xl gradient-btn flex items-center justify-center text-white font-bold text-base shadow-md shadow-pink-500/20 shrink-0">
+    <!-- Header with absolute safe spacing for iPhone Dynamic Island / Notch -->
+    <header class="border-b border-slate-800 bg-slate-950/95 backdrop-blur sticky top-0 z-30 ios-safe-header pb-3 px-4 shadow-md">
+        <div class="max-w-4xl mx-auto flex items-center justify-between gap-2">
+            <div class="flex items-center space-x-2.5 min-w-0">
+                <div class="w-9 h-9 rounded-xl gradient-btn flex items-center justify-center text-white font-bold text-base shadow-md shadow-pink-500/20 shrink-0">
                     <i class="fa-brands fa-instagram"></i>
                 </div>
                 <div class="min-w-0">
@@ -57,12 +57,12 @@
                     <p class="text-[10px] text-slate-400 truncate">手機直接比對・免密碼</p>
                 </div>
             </div>
-            <div class="flex gap-1.5 shrink-0">
-                <button id="pwaHelpBtn" type="button" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center gap-1 shadow-sm">
+            <div class="flex gap-2 shrink-0">
+                <button id="pwaHelpBtn" type="button" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-xl border border-slate-700 transition flex items-center gap-1.5 shadow-sm font-medium">
                     <i class="fa-solid fa-mobile-button text-pink-400"></i>
                     <span>加桌面</span>
                 </button>
-                <button id="showGuideBtn" type="button" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center gap-1 shadow-sm">
+                <button id="showGuideBtn" type="button" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-xl border border-slate-700 transition flex items-center gap-1.5 shadow-sm font-medium">
                     <i class="fa-solid fa-circle-question text-amber-400"></i>
                     <span>教學</span>
                 </button>
@@ -70,8 +70,8 @@
         </div>
     </header>
 
-    <!-- Notification Toast (Fixed lower down so it never covers the header or buttons) -->
-    <div id="toast" class="fixed top-24 left-1/2 -translate-x-1/2 w-[92%] max-w-sm bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-2xl transform -translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center gap-2.5 pointer-events-none border border-emerald-400/30">
+    <!-- Notification Toast (Positioned safely below header) -->
+    <div id="toast" class="fixed top-28 left-1/2 -translate-x-1/2 w-[92%] max-w-sm bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-2xl transform -translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center gap-2.5 pointer-events-none border border-emerald-400/30">
         <i class="fa-solid fa-circle-check text-lg shrink-0"></i>
         <span id="toastMsg" class="text-xs font-medium leading-relaxed">已成功執行操作！</span>
     </div>
@@ -317,7 +317,6 @@
                 }
                 const followers = [];
                 const following = [];
-                // Collect basic links or rendered profile info as safe fallback
                 document.querySelectorAll('a').forEach(a => {
                     const href = a.getAttribute('href') || '';
                     if(href.startsWith('/') && href.split('/').length === 2 && !href.includes('explore') && !href.includes('reels')) {
@@ -328,7 +327,6 @@
                 const data = { username: username, followers: followers, following: following, timestamp: new Date().toISOString() };
                 const jsonStr = JSON.stringify(data, null, 2);
                 
-                // Copy to clipboard
                 const ta = document.createElement('textarea');
                 ta.value = jsonStr;
                 document.body.appendChild(ta);
@@ -418,7 +416,7 @@
                     following: parsed.following || []
                 };
                 snapshots.unshift(newSnapshot);
-                if(snapshots.length > 10) snapshots.pop(); // Keep max 10
+                if(snapshots.length > 10) snapshots.pop();
                 localStorage.setItem('ig_snapshots', JSON.stringify(snapshots));
                 jsonInput.value = '';
                 updateSnapshotSelector();
@@ -508,27 +506,22 @@
                 const prevFollowers = new Set(previous.followers || []);
                 const currFollowersSet = new Set(currentFollowers);
 
-                // Unfollowers: was in prev followers, not in current followers
                 previous.followers.forEach(function(user) {
                     if(!currFollowersSet.has(user)) unfollowers.push(user);
                 });
 
-                // New Followers: in current followers, not in prev followers
                 currentFollowers.forEach(function(user) {
                     if(!prevFollowers.has(user)) newFollowers.push(user);
                 });
             } else {
-                // If only 1 snapshot, new followers = all current followers
                 newFollowers = [...currentFollowers];
             }
 
-            // Not following back (I follow them, but they don't follow me)
             const currFollowersSet = new Set(currentFollowers);
             const notFollowingBack = currentFollowing.filter(function(user) {
                 return !currFollowersSet.has(user);
             });
 
-            // Fans not followed back (They follow me, but I don't follow them)
             const currFollowingSet = new Set(currentFollowing);
             const fans = currentFollowers.filter(function(user) {
                 return !currFollowingSet.has(user);
@@ -561,7 +554,6 @@
             else if(currentTab === 'notFollowingBack') list = computedData.notFollowingBack;
             else if(currentTab === 'fans') list = computedData.fans;
 
-            // Filter by search query
             if(currentSearchQuery) {
                 list = list.filter(function(u) { return u.toLowerCase().includes(currentSearchQuery); });
             }
@@ -612,13 +604,11 @@
         closePwaBtn.addEventListener('click', function() { pwaModal.classList.add('hidden'); });
         closePwaFooterBtn.addEventListener('click', function() { pwaModal.classList.add('hidden'); });
 
-        // Close modals on outside click
         window.addEventListener('click', function(e) {
             if(e.target === guideModal) guideModal.classList.add('hidden');
             if(e.target === pwaModal) pwaModal.classList.add('hidden');
         });
 
-        // Initialize on load
         window.onload = function() {
             updateSnapshotSelector();
             renderAnalysis();
