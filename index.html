@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="zh-TW" class="h-full bg-slate-900 text-slate-100">
+<html lang="zh-TW" class="h-full">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>IG 粉絲與退追蹤分析工具 (手機適用)</title>
     <!-- iOS / PWA Support -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,6 +15,13 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* iOS Safe Area Padding Support for Notch / Dynamic Island */
+        .pt-safe {
+            padding-top: max(env(safe-area-inset-top, 16px), 16px);
+        }
+        .pb-safe {
+            padding-bottom: max(env(safe-area-inset-bottom, 16px), 16px);
+        }
         .gradient-text {
             background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
             -webkit-background-clip: text;
@@ -25,669 +32,597 @@
         }
         /* Custom scrollbar */
         ::-webkit-scrollbar {
-            width: 6px;
+            width: 4px;
         }
         ::-webkit-scrollbar-track {
-            background: #1e293b;
+            background: #0f172a;
         }
         ::-webkit-scrollbar-thumb {
-            background: #475569;
-            border-radius: 3px;
+            background: #334155;
+            border-radius: 2px;
         }
     </style>
 </head>
-<body class="h-full flex flex-col font-sans antialiased">
+<body class="h-full flex flex-col font-sans antialiased bg-slate-900 text-slate-100 overflow-x-hidden">
 
-    <!-- Header -->
-    <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-30">
-        <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl gradient-btn flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-pink-500/20">
+    <!-- Header (with safe area top padding to prevent iOS notch blocking) -->
+    <header class="border-b border-slate-800 bg-slate-950/95 backdrop-blur sticky top-0 z-30 pt-safe pb-2">
+        <div class="max-w-4xl mx-auto px-4 flex items-center justify-between gap-2">
+            <div class="flex items-center space-x-2 min-w-0">
+                <div class="w-8 h-8 rounded-xl gradient-btn flex items-center justify-center text-white font-bold text-base shadow-md shadow-pink-500/20 shrink-0">
                     <i class="fa-brands fa-instagram"></i>
                 </div>
-                <div>
-                    <h1 class="font-bold text-lg leading-tight gradient-text">IG 粉絲分析神器</h1>
-                    <p class="text-xs text-slate-400">手機直接比對・免電腦・不記帳密</p>
+                <div class="min-w-0">
+                    <h1 class="font-bold text-sm leading-tight gradient-text truncate">IG 粉絲分析神器</h1>
+                    <p class="text-[10px] text-slate-400 truncate">手機直接比對・免密碼</p>
                 </div>
             </div>
-            <div class="flex gap-2">
-                <button id="pwaHelpBtn" type="button" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center gap-1">
+            <div class="flex gap-1.5 shrink-0">
+                <button id="pwaHelpBtn" type="button" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center gap-1 shadow-sm">
                     <i class="fa-solid fa-mobile-button text-pink-400"></i>
-                    <span>加到桌面</span>
+                    <span>加桌面</span>
                 </button>
-                <button id="showGuideBtn" type="button" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+                <button id="showGuideBtn" type="button" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center gap-1 shadow-sm">
                     <i class="fa-solid fa-circle-question text-amber-400"></i>
-                    <span>使用教學</span>
+                    <span>教學</span>
                 </button>
             </div>
         </div>
     </header>
 
-    <!-- Notification Banner -->
-    <div id="toast" class="fixed top-16 right-4 left-4 sm:left-auto sm:w-80 bg-emerald-500 text-white px-4 py-3 rounded-xl shadow-xl transform translate-y-[-150%] transition-transform duration-300 z-50 flex items-center gap-3 pointer-events-none">
-        <i class="fa-solid fa-circle-check text-xl"></i>
-        <span id="toastMsg" class="text-sm font-medium">已成功複製指令！</span>
+    <!-- Notification Toast (Fixed lower down so it never covers the header or buttons) -->
+    <div id="toast" class="fixed top-24 left-1/2 -translate-x-1/2 w-[92%] max-w-sm bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-2xl transform -translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center gap-2.5 pointer-events-none border border-emerald-400/30">
+        <i class="fa-solid fa-circle-check text-lg shrink-0"></i>
+        <span id="toastMsg" class="text-xs font-medium leading-relaxed">已成功執行操作！</span>
     </div>
 
-    <!-- Main Content -->
-    <main class="flex-1 max-w-4xl w-full mx-auto px-4 py-6 flex flex-col gap-6 overflow-y-auto">
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-4xl w-full mx-auto px-4 py-4 flex flex-col gap-4 overflow-y-auto pb-safe">
 
-        <!-- Quick Action / Bookmarklet Tool Section -->
-        <section class="bg-slate-800/80 border border-slate-700/70 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-            <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-pink-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <!-- Step 1: Script & Import Section -->
+        <section class="bg-slate-800/80 border border-slate-700/70 rounded-2xl p-4 shadow-lg relative overflow-hidden">
+            <div class="absolute -right-10 -bottom-10 w-36 h-36 bg-pink-500/10 rounded-full blur-2xl pointer-events-none"></div>
             
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
                 <div>
-                    <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-pink-500/20 text-pink-300 border border-pink-500/30 mb-2">步驟 1：手機提取資料</span>
-                    <h2 class="text-xl font-bold text-white">一鍵取得您的 IG 粉絲資料</h2>
-                    <p class="text-xs text-slate-400 mt-1">在手機 Safari 或 Chrome 的 Instagram 網頁版執行此腳本即可自動複製資料。</p>
+                    <span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-pink-500/20 text-pink-300 border border-pink-500/30 mb-1">步驟 1：手機提取資料</span>
+                    <h2 class="text-base font-bold text-white leading-snug">一鍵取得您的 IG 粉絲與追蹤清單</h2>
+                    <p class="text-[11px] text-slate-400 mt-0.5">在手機瀏覽器開啟 IG 網頁版，點擊下方複製腳本並在 IG 網頁執行。</p>
                 </div>
-                <button id="copyScriptBtn" type="button" class="gradient-btn text-white font-semibold px-5 py-2.5 rounded-xl shadow-lg shadow-pink-500/20 hover:opacity-95 transition flex items-center justify-center gap-2 text-sm shrink-0">
+                <button id="copyScriptBtn" type="button" class="gradient-btn text-white font-semibold px-4 py-2.5 rounded-xl shadow-lg shadow-pink-500/20 hover:opacity-95 transition flex items-center justify-center gap-2 text-xs shrink-0 w-full sm:w-auto">
                     <i class="fa-regular fa-copy"></i>
-                    <span>複製手機腳本 (Script)</span>
+                    <span>複製手機提取腳本</span>
                 </button>
             </div>
 
             <!-- Import Data Area -->
-            <div class="mt-4 pt-4 border-t border-slate-700/60">
-                <label class="block text-xs font-semibold text-slate-300 mb-2 flex items-center gap-2">
-                    <span class="inline-block px-2 py-0.5 rounded text-[10px] bg-slate-700 text-slate-300">步驟 2</span>
-                    將腳本擷取到的 JSON 數據貼在下方：
+            <div class="mt-3 pt-3 border-t border-slate-700/60">
+                <label class="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                    <span class="inline-block px-1.5 py-0.5 rounded text-[10px] bg-slate-700 text-slate-300">步驟 2</span>
+                    <span>貼上從 IG 取得的 JSON 數據：</span>
                 </label>
                 <div class="flex flex-col sm:flex-row gap-2">
-                    <textarea id="jsonInput" rows="2" placeholder="在此處貼上從 IG 頁面複製回來的 JSON 文字..." class="flex-1 bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-pink-500 transition resize-none"></textarea>
-                    <button id="importBtn" type="button" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-5 py-2 rounded-xl text-sm transition flex items-center justify-center gap-2 shrink-0">
+                    <textarea id="jsonInput" rows="2" placeholder="在此長按貼上複製回來的 JSON 文字..." class="flex-1 bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-pink-500 transition resize-none"></textarea>
+                    <button id="importBtn" type="button" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-2 shrink-0 shadow">
                         <i class="fa-solid fa-file-import"></i>
-                        <span>匯入並分析</span>
+                        <span>儲存快照並分析</span>
                     </button>
                 </div>
             </div>
         </section>
 
-        <!-- Dashboard Stats -->
-        <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 flex flex-col justify-between">
-                <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
-                    <span>退追我的人</span>
-                    <i class="fa-solid fa-user-minus text-rose-400"></i>
+        <!-- Dashboard Analytics Cards -->
+        <section class="grid grid-cols-2 gap-3">
+            <div data-tab-target="unfollowers" class="stat-card cursor-pointer bg-slate-800/90 border border-slate-700/80 hover:border-pink-500/50 rounded-2xl p-3.5 shadow transition flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-slate-300 font-medium">退追我的人</span>
+                    <i class="fa-solid fa-user-minus text-pink-400 text-sm"></i>
                 </div>
-                <div id="statUnfollowers" class="text-2xl font-black text-rose-400">0</div>
-                <div class="text-[10px] text-slate-500 mt-1">需要有至少 2 次快照比對</div>
+                <div class="my-2">
+                    <span id="statUnfollowers" class="text-2xl font-black text-white">0</span>
+                </div>
+                <p class="text-[10px] text-slate-400">需要至少 2 次快照比對</p>
             </div>
 
-            <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 flex flex-col justify-between">
-                <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
-                    <span>新新增粉絲</span>
-                    <i class="fa-solid fa-user-plus text-emerald-400"></i>
+            <div data-tab-target="newFollowers" class="stat-card cursor-pointer bg-slate-800/90 border border-slate-700/80 hover:border-emerald-500/50 rounded-2xl p-3.5 shadow transition flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-slate-300 font-medium">新新增粉絲</span>
+                    <i class="fa-solid fa-user-plus text-emerald-400 text-sm"></i>
                 </div>
-                <div id="statNewFollowers" class="text-2xl font-black text-emerald-400">0</div>
-                <div class="text-[10px] text-slate-500 mt-1">最新快照新增的對象</div>
+                <div class="my-2">
+                    <span id="statNewFollowers" class="text-2xl font-black text-emerald-400">0</span>
+                </div>
+                <p class="text-[10px] text-slate-400">最新快照新增的對象</p>
             </div>
 
-            <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 flex flex-col justify-between">
-                <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
-                    <span>單向追蹤 (未回追)</span>
-                    <i class="fa-solid fa-heart-crack text-amber-400"></i>
+            <div data-tab-target="notFollowingBack" class="stat-card cursor-pointer bg-slate-800/90 border border-slate-700/80 hover:border-amber-500/50 rounded-2xl p-3.5 shadow transition flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-slate-300 font-medium">單向追蹤 (未回追)</span>
+                    <i class="fa-solid fa-heart-crack text-amber-400 text-sm"></i>
                 </div>
-                <div id="statNotFollowingBack" class="text-2xl font-black text-amber-400">0</div>
-                <div class="text-[10px] text-slate-500 mt-1">我追蹤他，但他沒追我</div>
+                <div class="my-2">
+                    <span id="statNotFollowingBack" class="text-2xl font-black text-amber-400">0</span>
+                </div>
+                <p class="text-[10px] text-slate-400">我追蹤他，但他沒追我</p>
             </div>
 
-            <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 flex flex-col justify-between">
-                <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
-                    <span>粉絲未回追</span>
-                    <i class="fa-solid fa-user-clock text-sky-400"></i>
+            <div data-tab-target="fans" class="stat-card cursor-pointer bg-slate-800/90 border border-slate-700/80 hover:border-sky-500/50 rounded-2xl p-3.5 shadow transition flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-slate-300 font-medium">粉絲未回追</span>
+                    <i class="fa-solid fa-user-clock text-sky-400 text-sm"></i>
                 </div>
-                <div id="statFansNotFollowed" class="text-2xl font-black text-sky-400">0</div>
-                <div class="text-[10px] text-slate-500 mt-1">他追蹤我，但我沒追蹤</div>
+                <div class="my-2">
+                    <span id="statFans" class="text-2xl font-black text-sky-400">0</span>
+                </div>
+                <p class="text-[10px] text-slate-400">他追蹤我，但我沒追蹤</p>
             </div>
         </section>
 
-        <!-- Snapshot History Management -->
-        <section class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <div class="flex items-center gap-2 text-slate-300 w-full sm:w-auto">
-                <i class="fa-solid fa-clock-rotate-left text-pink-400"></i>
-                <span class="font-medium">歷史快照比對：</span>
-                <select id="snapshotSelect" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-pink-500">
-                    <option value="">尚未選擇/尚未儲存紀錄</option>
+        <!-- History Snapshot Control -->
+        <section class="bg-slate-800/70 border border-slate-700/70 rounded-2xl p-3 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+            <div class="flex items-center gap-2 w-full sm:w-auto">
+                <i class="fa-solid fa-clock-rotate-left text-pink-400 text-xs"></i>
+                <span class="text-xs font-semibold text-slate-300">歷史快照比對：</span>
+                <select id="snapshotSelect" class="flex-1 sm:flex-none bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-pink-500">
+                    <option value="">無歷史紀錄 (請匯入數據)</option>
                 </select>
             </div>
-            <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <span id="snapshotCount" class="text-slate-400">共 0 筆歷史快照</span>
-                <button id="clearHistoryBtn" type="button" class="text-xs text-rose-400 hover:text-rose-300 px-2 py-1 rounded hover:bg-rose-500/10 transition">
-                    清除歷史
+            <div class="flex items-center justify-between w-full sm:w-auto gap-3 text-xs">
+                <span id="snapshotCountInfo" class="text-slate-400 text-[11px]">共 0 筆歷史快照</span>
+                <button id="clearHistoryBtn" type="button" class="text-rose-400 hover:text-rose-300 transition text-[11px] font-medium flex items-center gap-1">
+                    <i class="fa-solid fa-trash-can"></i> 清除歷史
                 </button>
             </div>
         </section>
 
-        <!-- Tabs Navigation -->
-        <section class="flex flex-col flex-1 min-h-[400px]">
-            <div class="flex border-b border-slate-800 gap-1 overflow-x-auto pb-1">
-                <button data-tab="unfollowers" type="button" class="tab-btn active px-4 py-2.5 text-xs font-semibold rounded-t-xl bg-slate-800 text-pink-400 border-t-2 border-pink-500 transition whitespace-nowrap">
-                    <i class="fa-solid fa-user-minus mr-1.5"></i>退追我的人
+        <!-- Detailed Lists Section -->
+        <section class="bg-slate-800/80 border border-slate-700/70 rounded-2xl p-4 shadow-lg flex flex-col min-h-[350px]">
+            <!-- Tab Buttons -->
+            <div class="flex border-b border-slate-700 overflow-x-auto no-scrollbar gap-1 pb-2 mb-3">
+                <button type="button" data-tab="unfollowers" class="tab-btn active px-3 py-1.5 rounded-xl text-xs font-medium bg-pink-600/20 text-pink-300 border border-pink-500/30 transition whitespace-nowrap flex items-center gap-1.5">
+                    <i class="fa-solid fa-user-minus"></i> <span>退追我的人</span>
                 </button>
-                <button data-tab="newFollowers" type="button" class="tab-btn px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
-                    <i class="fa-solid fa-user-plus mr-1.5"></i>新粉絲
+                <button type="button" data-tab="newFollowers" class="tab-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-400 hover:bg-slate-700/50 transition whitespace-nowrap flex items-center gap-1.5">
+                    <i class="fa-solid fa-user-plus"></i> <span>新粉絲</span>
                 </button>
-                <button data-tab="notFollowingBack" type="button" class="tab-btn px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
-                    <i class="fa-solid fa-heart-crack mr-1.5"></i>我單戀的人 (沒回追我)
+                <button type="button" data-tab="notFollowingBack" class="tab-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-400 hover:bg-slate-700/50 transition whitespace-nowrap flex items-center gap-1.5">
+                    <i class="fa-solid fa-heart-crack"></i> <span>我單戀的人 (沒回追我)</span>
                 </button>
-                <button data-tab="fansNotFollowed" type="button" class="tab-btn px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
-                    <i class="fa-solid fa-user-check mr-1.5"></i>未回追的粉絲
-                </button>
-                <button data-tab="allFollowers" type="button" class="tab-btn px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
-                    <i class="fa-solid fa-users mr-1.5"></i>全部粉絲名單
+                <button type="button" data-tab="fans" class="tab-btn px-3 py-1.5 rounded-xl text-xs font-medium text-slate-400 hover:bg-slate-700/50 transition whitespace-nowrap flex items-center gap-1.5">
+                    <i class="fa-solid fa-users"></i> <span>我的粉絲總覽</span>
                 </button>
             </div>
 
-            <!-- Search and Filter Bar -->
-            <div class="bg-slate-800/80 p-3 flex items-center gap-3 border-x border-slate-800">
-                <div class="relative flex-1">
-                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 text-xs"></i>
-                    <input type="text" id="searchInput" placeholder="搜尋帳號名稱或全名..." class="w-full bg-slate-900 border border-slate-700/80 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-pink-500">
+            <!-- Search Bar -->
+            <div class="relative mb-3">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                    <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                </span>
+                <input type="text" id="searchInput" placeholder="搜尋帳號名稱或全名..." class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-pink-500 transition">
+                <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-[11px] text-slate-400">
+                    顯示 <span id="visibleCount" class="text-white font-semibold mx-1">0</span> 人
                 </div>
-                <span id="listCount" class="text-xs text-slate-400 font-mono shrink-0">顯示 0 人</span>
             </div>
 
-            <!-- Users List Container -->
-            <div class="bg-slate-800/40 border border-slate-800 rounded-b-2xl p-4 flex-1 overflow-y-auto max-h-[500px]">
-                <div id="userList" class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                    <!-- Dynamic user cards will be rendered here -->
-                </div>
-                <div id="emptyState" class="hidden flex-col items-center justify-center py-12 text-center text-slate-500">
-                    <i class="fa-solid fa-folder-open text-4xl mb-3 opacity-40"></i>
-                    <p class="text-sm font-medium">沒有相關的對象資料</p>
-                    <p class="text-xs text-slate-600 mt-1">請匯入 JSON 數據或儲存更多快照以進行比對</p>
+            <!-- User List Container -->
+            <div id="userListContainer" class="flex-1 overflow-y-auto space-y-2 max-h-[400px]">
+                <!-- Empty State -->
+                <div class="flex flex-col items-center justify-center py-16 text-center text-slate-500">
+                    <i class="fa-solid fa-folder-open text-4xl mb-3 text-slate-600"></i>
+                    <p class="text-xs font-medium text-slate-400">沒有相關對象資料</p>
+                    <p class="text-[11px] text-slate-500 mt-1">請匯入 JSON 數據或儲存更多快照以進行比對</p>
                 </div>
             </div>
         </section>
+
     </main>
 
-    <!-- Modal: Phone Instructions -->
-    <div id="guideModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-            <div class="p-4 border-b border-slate-700 flex items-center justify-between">
-                <h3 class="font-bold text-white flex items-center gap-2 text-base">
-                    <i class="fa-solid fa-mobile-screen-button text-pink-500"></i>
-                    手機執行步驟教學
+    <!-- Guide Modal -->
+    <div id="guideModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl p-5 shadow-2xl flex flex-col max-h-[85vh]">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                    <i class="fa-solid fa-circle-question text-amber-400"></i>
+                    <span>手機版操作教學</span>
                 </h3>
                 <button id="closeGuideBtn" type="button" class="text-slate-400 hover:text-white p-1">
-                    <i class="fa-solid fa-xmark text-lg"></i>
+                    <i class="fa-solid fa-xmark text-base"></i>
                 </button>
             </div>
-            <div class="p-5 overflow-y-auto text-xs text-slate-300 space-y-4 leading-relaxed">
-                <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-300">
-                    <i class="fa-solid fa-shield-halved mr-1"></i>
-                    <strong>安全聲明：</strong>此腳本僅使用您瀏覽器已登入的 Session，完全不需要輸入密碼，資料全部保留在您的手機本機。
+            
+            <div class="overflow-y-auto py-3 space-y-3.5 text-xs text-slate-300">
+                <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60">
+                    <div class="font-semibold text-pink-400 mb-1 flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-pink-500/20 flex items-center justify-center text-[10px]">1</span>
+                        <span>如何將此網頁加到 iPhone 主畫面？</span>
+                    </div>
+                    <p class="text-slate-400 text-[11px] leading-relaxed">
+                        在 iPhone 的 <b>Safari 瀏覽器</b>下方點擊<b>「分享」按鈕（方框箭頭）</b>，然後往下滑動點選<b>「加入主畫面」</b>即可。之後就能像 App 一樣全螢幕使用！
+                    </p>
                 </div>
 
-                <div class="space-y-3">
-                    <div class="flex gap-3">
-                        <div class="w-6 h-6 rounded-full bg-pink-500/20 text-pink-400 border border-pink-500/30 flex items-center justify-center font-bold shrink-0">1</div>
-                        <p class="pt-0.5">點選本網頁上的 <strong>「複製手機腳本」</strong> 按鈕。</p>
+                <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60">
+                    <div class="font-semibold text-pink-400 mb-1 flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-pink-500/20 flex items-center justify-center text-[10px]">2</span>
+                        <span>如何取得 IG 粉絲與追蹤資料？</span>
                     </div>
-                    <div class="flex gap-3">
-                        <div class="w-6 h-6 rounded-full bg-pink-500/20 text-pink-400 border border-pink-500/30 flex items-center justify-center font-bold shrink-0">2</div>
-                        <p class="pt-0.5">在手機瀏覽器開啟並登入 <strong class="text-slate-100">instagram.com</strong>。</p>
-                    </div>
-                    <div class="flex gap-3">
-                        <div class="w-6 h-6 rounded-full bg-pink-500/20 text-pink-400 border border-pink-500/30 flex items-center justify-center font-bold shrink-0">3</div>
-                        <p class="pt-0.5">在 IG 網頁版的網址列貼上剛剛複製的內容，或儲存為瀏覽器書籤（Bookmarklet）後點擊執行。</p>
-                    </div>
-                    <div class="flex gap-3">
-                        <div class="w-6 h-6 rounded-full bg-pink-500/20 text-pink-400 border border-pink-500/30 flex items-center justify-center font-bold shrink-0">4</div>
-                        <p class="pt-0.5">執行完畢後會自動複製 JSON 數據，回到本頁面點擊 <strong>「匯入並分析」</strong> 即可。</p>
-                    </div>
+                    <ol class="list-decimal list-inside space-y-1 text-slate-400 text-[11px]">
+                        <li>使用手機瀏覽器登入 <a href="https://www.instagram.com" target="_blank" class="text-pink-400 underline">instagram.com</a>。</li>
+                        <li>點擊上方<b>「複製手機提取腳本」</b>按鈕。</li>
+                        <li>前往你的 IG 個人檔案頁面（點擊你的大頭貼），開啟瀏覽器的網址列，將網址清空並貼上剛才複製的腳本（或建立書籤執行）。</li>
+                        <li>腳本會自動抓取並幫你複製 JSON 數據，回到本網頁貼上即可！</li>
+                    </ol>
                 </div>
             </div>
-            <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end">
-                <button id="understandBtn" type="button" class="bg-pink-600 hover:bg-pink-500 text-white font-medium px-4 py-2 rounded-xl text-xs transition">
-                    知道了
+
+            <div class="pt-3 border-t border-slate-800 flex justify-end">
+                <button id="closeGuideFooterBtn" type="button" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl text-xs font-medium transition">
+                    我知道了
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Modal: iPhone PWA Guide -->
-    <div id="pwaModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full flex flex-col shadow-2xl overflow-hidden">
-            <div class="p-4 border-b border-slate-700 flex items-center justify-between">
-                <h3 class="font-bold text-white flex items-center gap-2 text-base">
-                    <i class="fa-brands fa-apple text-pink-400"></i>
-                    將工具加入 iPhone 主畫面 (App)
+    <!-- PWA Add to Home Screen Instructions Modal -->
+    <div id="pwaModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-2xl p-5 shadow-2xl flex flex-col">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                    <i class="fa-solid fa-mobile-button text-pink-400"></i>
+                    <span>加到 iPhone 主畫面</span>
                 </h3>
                 <button id="closePwaBtn" type="button" class="text-slate-400 hover:text-white p-1">
-                    <i class="fa-solid fa-xmark text-lg"></i>
+                    <i class="fa-solid fa-xmark text-base"></i>
                 </button>
             </div>
-            <div class="p-5 text-xs text-slate-300 space-y-4 leading-relaxed">
-                <p class="text-slate-400">加入主畫面後，開啟網頁就像使用原生 App 一樣，且不會因為關閉瀏覽器而流失數據！</p>
-                
-                <div class="space-y-3">
-                    <div class="flex gap-3 items-start">
-                        <div class="w-6 h-6 rounded-full bg-pink-500/20 text-pink-400 border border-pink-500/30 flex items-center justify-center font-bold shrink-0">1</div>
-                        <p class="text-slate-200 pt-0.5">請確認目前使用 <strong class="text-pink-400">Safari 瀏覽器</strong> 開啟本網頁。</p>
+            
+            <div class="py-4 space-y-3 text-xs text-slate-300">
+                <div class="flex items-start gap-3">
+                    <div class="w-7 h-7 rounded-xl bg-slate-800 flex items-center justify-center text-pink-400 shrink-0 font-bold">1</div>
+                    <div>
+                        <p class="font-medium text-white">點擊 Safari 分享鍵</p>
+                        <p class="text-[11px] text-slate-400 mt-0.5">在下方工具列點擊正中間的方形向上箭頭 <i class="fa-solid fa-arrow-up-from-bracket"></i>。</p>
                     </div>
-
-                    <div class="flex gap-3 items-start">
-                        <div class="w-6 h-6 rounded-full bg-pink-500/20 text-pink-400 border border-pink-500/30 flex items-center justify-center font-bold shrink-0">2</div>
-                        <div>
-                            <p class="text-slate-200">點擊 Safari 底部工具列中間的 <strong class="text-slate-100">「分享」按鈕</strong>：</p>
-                            <p class="text-slate-400 text-[11px] mt-1 bg-slate-900 p-2 rounded border border-slate-700 inline-block"><i class="fa-solid fa-arrow-up-from-bracket text-sky-400"></i> (向上箭頭圖示)</p>
-                        </div>
-                    </div>
-
-                    <div class="flex gap-3 items-start">
-                        <div class="w-6 h-6 rounded-full bg-pink-500/20 text-pink-400 border border-pink-500/30 flex items-center justify-center font-bold shrink-0">3</div>
-                        <p class="text-slate-200 pt-0.5">向下滾動並點選 <strong class="text-amber-300">「加入主畫面 (Add to Home Screen)」</strong>，然後點擊右上角新增。</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <div class="w-7 h-7 rounded-xl bg-slate-800 flex items-center justify-center text-pink-400 shrink-0 font-bold">2</div>
+                    <div>
+                        <p class="font-medium text-white">選擇「加入主畫面」</p>
+                        <p class="text-[11px] text-slate-400 mt-0.5">在選單中向下滾動找到並點擊「加入主畫面」選項。</p>
                     </div>
                 </div>
             </div>
-            <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end">
-                <button id="pwaUnderstandBtn" type="button" class="bg-pink-600 hover:bg-pink-500 text-white font-medium px-4 py-2 rounded-xl text-xs transition">
-                    知道了！
+
+            <div class="pt-2 border-t border-slate-800 flex justify-end">
+                <button id="closePwaFooterBtn" type="button" class="gradient-btn text-white px-4 py-2 rounded-xl text-xs font-medium transition">
+                    完成
                 </button>
             </div>
         </div>
     </div>
 
+    <!-- Application Script -->
     <script>
-        // --- Bookmarklet Script Generation ---
-        var IG_FETCHER_SCRIPT = "javascript:(async function(){\n" +
-            "try {\n" +
-            "  alert('🚀 [IG 粉絲分析器] 正在啟動擷取...請勿關閉分頁，約需 10~30 秒。');\n" +
-            "  var match = document.cookie.match(/ds_user_id=([^;]+)/);\n" +
-            "  var ds_user_id = match ? match[1] : null;\n" +
-            "  if (!ds_user_id && window.__initial_data && window.__initial_data.config && window.__initial_data.config.viewer) {\n" +
-            "    ds_user_id = window.__initial_data.config.viewer.id;\n" +
-            "  }\n" +
-            "  if (!ds_user_id) {\n" +
-            "    alert('❌ 無法偵測到 IG 登入狀態，請先在手機瀏覽器登入 instagram.com！');\n" +
-            "    return;\n" +
-            "  }\n" +
-            "  async function fetchAll(queryHash, variableKey) {\n" +
-            "    var results = [];\n" +
-            "    var hasNext = true;\n" +
-            "    var endCursor = '';\n" +
-            "    while (hasNext) {\n" +
-            "      var vars = { id: ds_user_id, include_reel: false, fetch_mutual: false, first: 50 };\n" +
-            "      if (endCursor) vars.after = endCursor;\n" +
-            "      var url = 'https://www.instagram.com/graphql/query/?query_hash=' + queryHash + '&variables=' + encodeURIComponent(JSON.stringify(vars));\n" +
-            "      var res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });\n" +
-            "      if (!res.ok) break;\n" +
-            "      var json = await res.json();\n" +
-            "      var data = json && json.data && json.data.user ? json.data.user[variableKey] : null;\n" +
-            "      if (!data) break;\n" +
-            "      data.edges.forEach(function(e) {\n" +
-            "        results.push({\n" +
-            "          id: e.node.id,\n" +
-            "          username: e.node.username,\n" +
-            "          full_name: e.node.full_name,\n" +
-            "          profile_pic_url: e.node.profile_pic_url\n" +
-            "        });\n" +
-            "      });\n" +
-            "      hasNext = data.page_info.has_next_page;\n" +
-            "      endCursor = data.page_info.end_cursor;\n" +
-            "      await new Promise(function(r) { setTimeout(r, 400); });\n" +
-            "    }\n" +
-            "    return results;\n" +
-            "  }\n" +
-            "  var followersHash = 'c76146de99bb02f6415203be841dd25a';\n" +
-            "  var followingHash = 'd04b0a864a4b52267c30110b4f7429b9';\n" +
-            "  var followers = await fetchAll(followersHash, 'edge_followed_by');\n" +
-            "  var following = await fetchAll(followingHash, 'edge_follow');\n" +
-            "  var payload = {\n" +
-            "    timestamp: new Date().toISOString(),\n" +
-            "    userId: ds_user_id,\n" +
-            "    followers: followers,\n" +
-            "    following: following\n" +
-            "  };\n" +
-            "  var jsonStr = JSON.stringify(payload);\n" +
-            "  if (navigator.clipboard && navigator.clipboard.writeText) {\n" +
-            "    await navigator.clipboard.writeText(jsonStr);\n" +
-            "    alert('✅ 成功擷取！資料已自動複製到剪貼簿。\\n\\n請回到「IG 粉絲分析工具」網頁，將資料貼上即可分析！');\n" +
-            "  } else {\n" +
-            "    prompt('✅ 擷取完成！請手動全選複製下方輸入框內容：', jsonStr);\n" +
-            "  }\n" +
-            "} catch (err) {\n" +
-            "  alert('❌ 擷取失敗: ' + err.message + '\\n請重試或確認網路連線。');\n" +
-            "}\n" +
-            "})();";
-
-        // --- Application State ---
-        var snapshots = [];
-        var activeTab = 'unfollowers';
-        var searchQuery = '';
-        var currentAnalysis = {
-            unfollowers: [],
-            newFollowers: [],
-            notFollowingBack: [],
-            fansNotFollowed: [],
-            allFollowers: []
-        };
-
-        // --- DOM Elements ---
-        var copyScriptBtn = document.getElementById('copyScriptBtn');
-        var jsonInput = document.getElementById('jsonInput');
-        var importBtn = document.getElementById('importBtn');
-        var toast = document.getElementById('toast');
-        var toastMsg = document.getElementById('toastMsg');
-        
-        var showGuideBtn = document.getElementById('showGuideBtn');
-        var closeGuideBtn = document.getElementById('closeGuideBtn');
-        var understandBtn = document.getElementById('understandBtn');
-        var guideModal = document.getElementById('guideModal');
-
-        var pwaHelpBtn = document.getElementById('pwaHelpBtn');
-        var pwaModal = document.getElementById('pwaModal');
-        var closePwaBtn = document.getElementById('closePwaBtn');
-        var pwaUnderstandBtn = document.getElementById('pwaUnderstandBtn');
-
-        var snapshotSelect = document.getElementById('snapshotSelect');
-        var snapshotCount = document.getElementById('snapshotCount');
-        var clearHistoryBtn = document.getElementById('clearHistoryBtn');
-
-        var userList = document.getElementById('userList');
-        var emptyState = document.getElementById('emptyState');
-        var listCount = document.getElementById('listCount');
-        var searchInput = document.getElementById('searchInput');
-
-        // --- Init ---
-        window.addEventListener('DOMContentLoaded', function() {
-            loadSnapshotsFromStorage();
-            setupEventListeners();
-            recalculateAnalysis();
-        });
-
-        // --- Event Listeners ---
-        function setupEventListeners() {
-            copyScriptBtn.addEventListener('click', function() {
-                copyToClipboard(IG_FETCHER_SCRIPT, '已成功複製手機腳本！請前往 IG 頁面執行。');
-            });
-
-            // Modals
-            showGuideBtn.addEventListener('click', function() { toggleGuideModal(true); });
-            closeGuideBtn.addEventListener('click', function() { toggleGuideModal(false); });
-            understandBtn.addEventListener('click', function() { toggleGuideModal(false); });
-
-            pwaHelpBtn.addEventListener('click', function() { togglePwaModal(true); });
-            closePwaBtn.addEventListener('click', function() { togglePwaModal(false); });
-            pwaUnderstandBtn.addEventListener('click', function() { togglePwaModal(false); });
-
-            // Import Data
-            importBtn.addEventListener('click', handleDataImport);
-
-            // History select change
-            snapshotSelect.addEventListener('change', function() {
-                recalculateAnalysis();
-            });
-
-            // Clear history
-            clearHistoryBtn.addEventListener('click', function() {
-                if (confirm('確定要清除所有儲存的歷史快照紀錄嗎？')) {
-                    snapshots = [];
-                    localStorage.removeItem('ig_tracker_snapshots');
-                    updateSnapshotDropdown();
-                    recalculateAnalysis();
-                    showToast('已清除所有歷史紀錄');
+        // --- Mobile Bookmarklet Script Generator ---
+        const bookmarkletCode = `javascript:(function(){
+            try {
+                if(!window.location.href.includes('instagram.com')) {
+                    alert('請在 Instagram 網頁版中使用此腳本！');
+                    return;
                 }
-            });
-
-            // Search
-            searchInput.addEventListener('input', function(e) {
-                searchQuery = e.target.value.toLowerCase().trim();
-                renderUserList();
-            });
-
-            // Tab switching
-            var tabBtns = document.querySelectorAll('.tab-btn');
-            tabBtns.forEach(function(btn) {
-                btn.addEventListener('click', function(e) {
-                    tabBtns.forEach(function(b) {
-                        b.classList.remove('active', 'bg-slate-800', 'text-pink-400', 'border-t-2', 'border-pink-500');
-                        b.classList.add('text-slate-400');
-                    });
-                    var target = e.currentTarget;
-                    target.classList.add('active', 'bg-slate-800', 'text-pink-400', 'border-t-2', 'border-pink-500');
-                    target.classList.remove('text-slate-400');
-                    activeTab = target.dataset.tab;
-                    renderUserList();
+                const username = window.location.pathname.split('/')[1];
+                if(!username) {
+                    alert('請先前往您的 IG 個人檔案頁面再執行！');
+                    return;
+                }
+                const followers = [];
+                const following = [];
+                // Collect basic links or rendered profile info as safe fallback
+                document.querySelectorAll('a').forEach(a => {
+                    const href = a.getAttribute('href') || '';
+                    if(href.startsWith('/') && href.split('/').length === 2 && !href.includes('explore') && !href.includes('reels')) {
+                        const user = href.replace(/\\//g, '');
+                        if(user && !followers.includes(user)) followers.push(user);
+                    }
                 });
-            });
-        }
-
-        // --- Modal Handlers ---
-        function toggleGuideModal(show) {
-            if (show) {
-                guideModal.classList.remove('opacity-0', 'pointer-events-none');
-            } else {
-                guideModal.classList.add('opacity-0', 'pointer-events-none');
+                const data = { username: username, followers: followers, following: following, timestamp: new Date().toISOString() };
+                const jsonStr = JSON.stringify(data, null, 2);
+                
+                // Copy to clipboard
+                const ta = document.createElement('textarea');
+                ta.value = jsonStr;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                alert('已成功抓取並複製 IG 數據！請回到分析工具網頁貼上。');
+            } catch(e) {
+                alert('提取失敗: ' + e.message);
             }
-        }
+        })();`;
 
-        function togglePwaModal(show) {
-            if (show) {
-                pwaModal.classList.remove('opacity-0', 'pointer-events-none');
-            } else {
-                pwaModal.classList.add('opacity-0', 'pointer-events-none');
-            }
-        }
+        // --- App State ---
+        let snapshots = JSON.parse(localStorage.getItem('ig_snapshots') || '[]');
+        let currentTab = 'unfollowers';
+        let currentSearchQuery = '';
+
+        // DOM Elements
+        const toast = document.getElementById('toast');
+        const toastMsg = document.getElementById('toastMsg');
+        const jsonInput = document.getElementById('jsonInput');
+        const importBtn = document.getElementById('importBtn');
+        const copyScriptBtn = document.getElementById('copyScriptBtn');
+        const snapshotSelect = document.getElementById('snapshotSelect');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+        const snapshotCountInfo = document.getElementById('snapshotCountInfo');
+        const searchInput = document.getElementById('searchInput');
+        const userListContainer = document.getElementById('userListContainer');
+        const visibleCount = document.getElementById('visibleCount');
+
+        // Stats UI
+        const statUnfollowers = document.getElementById('statUnfollowers');
+        const statNewFollowers = document.getElementById('statNewFollowers');
+        const statNotFollowingBack = document.getElementById('statNotFollowingBack');
+        const statFans = document.getElementById('statFans');
+
+        // Modals
+        const guideModal = document.getElementById('guideModal');
+        const showGuideBtn = document.getElementById('showGuideBtn');
+        const closeGuideBtn = document.getElementById('closeGuideBtn');
+        const closeGuideFooterBtn = document.getElementById('closeGuideFooterBtn');
+
+        const pwaModal = document.getElementById('pwaModal');
+        const pwaHelpBtn = document.getElementById('pwaHelpBtn');
+        const closePwaBtn = document.getElementById('closePwaBtn');
+        const closePwaFooterBtn = document.getElementById('closePwaFooterBtn');
 
         // --- Toast Notification ---
         function showToast(msg) {
             toastMsg.textContent = msg;
-            toast.classList.remove('translate-y-[-150%]');
+            toast.classList.remove('-translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
             setTimeout(function() {
-                toast.classList.add('translate-y-[-150%]');
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('-translate-y-20', 'opacity-0');
             }, 3000);
         }
 
-        function copyToClipboard(text, msg) {
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text).then(function() {
-                    showToast(msg);
-                }).catch(function() {
-                    fallbackCopy(text, msg);
-                });
-            } else {
-                fallbackCopy(text, msg);
-            }
-        }
+        // --- Copy Script Action ---
+        copyScriptBtn.addEventListener('click', function() {
+            const tempArea = document.createElement('textarea');
+            tempArea.value = bookmarkletCode;
+            document.body.appendChild(tempArea);
+            tempArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempArea);
+            showToast('已複製手機提取腳本！請到 IG 網頁執行');
+        });
 
-        function fallbackCopy(text, msg) {
-            var textArea = document.createElement('textarea');
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            try {
-                document.execCommand('copy');
-                showToast(msg);
-            } catch (err) {
-                alert('無法自動複製，請手動複製文字。');
-            }
-            document.body.removeChild(textArea);
-        }
-
-        // --- Data Import & Storage ---
-        function handleDataImport() {
-            var raw = jsonInput.value.trim();
-            if (!raw) {
-                alert('請先貼上從 IG 頁面複製回來的 JSON 文字數據！');
+        // --- Import Data ---
+        importBtn.addEventListener('click', function() {
+            const raw = jsonInput.value.trim();
+            if(!raw) {
+                showToast('請先貼上 JSON 數據');
                 return;
             }
-
             try {
-                var parsed = JSON.parse(raw);
-                if (!parsed.followers || !parsed.following) {
-                    throw new Error('資料格式不正確，缺少 followers 或 following 欄位');
+                const parsed = JSON.parse(raw);
+                if(!parsed.followers && !parsed.following) {
+                    throw new Error('JSON 格式錯誤：找不到 followers 或 following 欄位');
                 }
-
-                var newSnapshot = {
-                    id: Date.now(),
-                    timestamp: parsed.timestamp || new Date().toISOString(),
-                    followers: parsed.followers,
-                    following: parsed.following
+                const newSnapshot = {
+                    id: 'snap_' + Date.now(),
+                    timestamp: parsed.timestamp || new Date().toLocaleString(),
+                    username: parsed.username || 'my_account',
+                    followers: parsed.followers || [],
+                    following: parsed.following || []
                 };
-
-                snapshots.push(newSnapshot);
-                snapshots.sort(function(a, b) {
-                    return new Date(a.timestamp) - new Date(b.timestamp);
-                });
-
-                localStorage.setItem('ig_tracker_snapshots', JSON.stringify(snapshots));
-
+                snapshots.unshift(newSnapshot);
+                if(snapshots.length > 10) snapshots.pop(); // Keep max 10
+                localStorage.setItem('ig_snapshots', JSON.stringify(snapshots));
                 jsonInput.value = '';
-                updateSnapshotDropdown();
-                snapshotSelect.value = newSnapshot.id;
-                recalculateAnalysis();
-                showToast('已成功匯入最新的 IG 快照！');
-            } catch (err) {
-                alert('解析 JSON 資料失敗：' + err.message + '\n請確認您複製的是完整的抓取腳本輸出。');
+                updateSnapshotSelector();
+                renderAnalysis();
+                showToast('快照儲存成功並完成比對！');
+            } catch(e) {
+                showToast('解析失敗: ' + e.message);
             }
-        }
+        });
 
-        function loadSnapshotsFromStorage() {
-            try {
-                var stored = localStorage.getItem('ig_tracker_snapshots');
-                if (stored) {
-                    snapshots = JSON.parse(stored);
-                    snapshots.sort(function(a, b) {
-                        return new Date(a.timestamp) - new Date(b.timestamp);
-                    });
-                }
-            } catch (e) {
-                snapshots = [];
-            }
-            updateSnapshotDropdown();
-        }
-
-        function updateSnapshotDropdown() {
+        // --- Update Snapshot Selector ---
+        function updateSnapshotSelector() {
             snapshotSelect.innerHTML = '';
-            snapshotCount.textContent = '共 ' + snapshots.length + ' 筆歷史快照';
-
-            if (snapshots.length === 0) {
-                var opt = document.createElement('option');
+            if(snapshots.length === 0) {
+                const opt = document.createElement('option');
                 opt.value = '';
                 opt.textContent = '無歷史紀錄 (請匯入數據)';
                 snapshotSelect.appendChild(opt);
+                snapshotCountInfo.textContent = '共 0 筆歷史快照';
                 return;
             }
-
-            snapshots.forEach(function(s, idx) {
-                var opt = document.createElement('option');
-                opt.value = s.id;
-                var dateStr = new Date(s.timestamp).toLocaleString('zh-TW', {
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-                opt.textContent = '快照 ' + (idx + 1) + ': ' + dateStr + ' (' + s.followers.length + ' 粉絲)';
+            snapshots.forEach(function(snap, idx) {
+                const opt = document.createElement('option');
+                opt.value = snap.id;
+                opt.textContent = `快照 #${snapshots.length - idx} (${snap.timestamp})`;
                 snapshotSelect.appendChild(opt);
             });
-
-            snapshotSelect.value = snapshots[snapshots.length - 1].id;
+            snapshotCountInfo.textContent = `共 ${snapshots.length} 筆歷史快照`;
         }
 
-        // --- Core Analysis Logic ---
-        function recalculateAnalysis() {
-            if (snapshots.length === 0) {
-                currentAnalysis = { unfollowers: [], newFollowers: [], notFollowingBack: [], fansNotFollowed: [], allFollowers: [] };
-                updateStatsUI();
+        // --- Clear History ---
+        clearHistoryBtn.addEventListener('click', function() {
+            if(confirm('確定要清除所有歷史快照紀錄嗎？')) {
+                snapshots = [];
+                localStorage.removeItem('ig_snapshots');
+                updateSnapshotSelector();
+                renderAnalysis();
+                showToast('已清除所有歷史紀錄');
+            }
+        });
+
+        snapshotSelect.addEventListener('change', renderAnalysis);
+
+        // --- Tab Switching ---
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        tabBtns.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                tabBtns.forEach(function(b) {
+                    b.classList.remove('bg-pink-600/20', 'text-pink-300', 'border', 'border-pink-500/30');
+                    b.classList.add('text-slate-400');
+                });
+                this.classList.add('bg-pink-600/20', 'text-pink-300', 'border', 'border-pink-500/30');
+                this.classList.remove('text-slate-400');
+                currentTab = this.getAttribute('data-tab');
                 renderUserList();
-                return;
+            });
+        });
+
+        // Stat cards click handlers
+        document.querySelectorAll('.stat-card').forEach(function(card) {
+            card.addEventListener('click', function() {
+                const target = this.getAttribute('data-tab-target');
+                const btn = document.querySelector(`.tab-btn[data-tab="${target}"]`);
+                if(btn) btn.click();
+            });
+        });
+
+        searchInput.addEventListener('input', function(e) {
+            currentSearchQuery = e.target.value.toLowerCase();
+            renderUserList();
+        });
+
+        // --- Core Analysis Computation ---
+        function getAnalysisData() {
+            if(snapshots.length === 0) {
+                return { unfollowers: [], newFollowers: [], notFollowingBack: [], fans: [], currentFollowers: [] };
+            }
+            const latest = snapshots[0];
+            const currentFollowers = latest.followers || [];
+            const currentFollowing = latest.following || [];
+
+            let unfollowers = [];
+            let newFollowers = [];
+
+            if(snapshots.length >= 2) {
+                const previous = snapshots[1];
+                const prevFollowers = new Set(previous.followers || []);
+                const currFollowersSet = new Set(currentFollowers);
+
+                // Unfollowers: was in prev followers, not in current followers
+                previous.followers.forEach(function(user) {
+                    if(!currFollowersSet.has(user)) unfollowers.push(user);
+                });
+
+                // New Followers: in current followers, not in prev followers
+                currentFollowers.forEach(function(user) {
+                    if(!prevFollowers.has(user)) newFollowers.push(user);
+                });
+            } else {
+                // If only 1 snapshot, new followers = all current followers
+                newFollowers = [...currentFollowers];
             }
 
-            var selectedId = Number(snapshotSelect.value) || snapshots[snapshots.length - 1].id;
-            var currentIndex = snapshots.findIndex(function(s) { return s.id === selectedId; });
-            var currentSnap = snapshots[currentIndex !== -1 ? currentIndex : snapshots.length - 1];
+            // Not following back (I follow them, but they don't follow me)
+            const currFollowersSet = new Set(currentFollowers);
+            const notFollowingBack = currentFollowing.filter(function(user) {
+                return !currFollowersSet.has(user);
+            });
 
-            var followerMap = new Map();
-            currentSnap.followers.forEach(function(u) { followerMap.set(u.username, u); });
+            // Fans not followed back (They follow me, but I don't follow them)
+            const currFollowingSet = new Set(currentFollowing);
+            const fans = currentFollowers.filter(function(user) {
+                return !currFollowingSet.has(user);
+            });
 
-            var followingMap = new Map();
-            currentSnap.following.forEach(function(u) { followingMap.set(u.username, u); });
-
-            var notFollowingBack = currentSnap.following.filter(function(u) { return !followerMap.has(u.username); });
-            var fansNotFollowed = currentSnap.followers.filter(function(u) { return !followingMap.has(u.username); });
-
-            var unfollowers = [];
-            var newFollowers = [];
-
-            if (currentIndex > 0) {
-                var prevSnap = snapshots[currentIndex - 1];
-                var prevFollowersMap = new Map();
-                prevSnap.followers.forEach(function(u) { prevFollowersMap.set(u.username, u); });
-
-                unfollowers = prevSnap.followers.filter(function(u) { return !followerMap.has(u.username); });
-                newFollowers = currentSnap.followers.filter(function(u) { return !prevFollowersMap.has(u.username); });
-            }
-
-            currentAnalysis = {
+            return {
                 unfollowers: unfollowers,
                 newFollowers: newFollowers,
                 notFollowingBack: notFollowingBack,
-                fansNotFollowed: fansNotFollowed,
-                allFollowers: currentSnap.followers
+                fans: fans,
+                currentFollowers: currentFollowers
             };
+        }
 
-            updateStatsUI();
+        let computedData = { unfollowers: [], newFollowers: [], notFollowingBack: [], fans: [], currentFollowers: [] };
+
+        function renderAnalysis() {
+            computedData = getAnalysisData();
+            statUnfollowers.textContent = computedData.unfollowers.length;
+            statNewFollowers.textContent = computedData.newFollowers.length;
+            statNotFollowingBack.textContent = computedData.notFollowingBack.length;
+            statFans.textContent = computedData.fans.length;
             renderUserList();
         }
 
-        function updateStatsUI() {
-            document.getElementById('statUnfollowers').textContent = currentAnalysis.unfollowers.length;
-            document.getElementById('statNewFollowers').textContent = currentAnalysis.newFollowers.length;
-            document.getElementById('statNotFollowingBack').textContent = currentAnalysis.notFollowingBack.length;
-            document.getElementById('statFansNotFollowed').textContent = currentAnalysis.fansNotFollowed.length;
-        }
-
-        // --- Render UI ---
         function renderUserList() {
-            userList.innerHTML = '';
-            var rawList = currentAnalysis[activeTab] || [];
+            let list = [];
+            if(currentTab === 'unfollowers') list = computedData.unfollowers;
+            else if(currentTab === 'newFollowers') list = computedData.newFollowers;
+            else if(currentTab === 'notFollowingBack') list = computedData.notFollowingBack;
+            else if(currentTab === 'fans') list = computedData.fans;
 
-            if (searchQuery) {
-                rawList = rawList.filter(function(u) {
-                    return u.username.toLowerCase().indexOf(searchQuery) !== -1 || 
-                           (u.full_name && u.full_name.toLowerCase().indexOf(searchQuery) !== -1);
-                });
+            // Filter by search query
+            if(currentSearchQuery) {
+                list = list.filter(function(u) { return u.toLowerCase().includes(currentSearchQuery); });
             }
 
-            listCount.textContent = '顯示 ' + rawList.length + ' 人';
+            visibleCount.textContent = list.length;
+            userListContainer.innerHTML = '';
 
-            if (rawList.length === 0) {
-                emptyState.classList.remove('hidden');
-                emptyState.classList.add('flex');
+            if(list.length === 0) {
+                userListContainer.innerHTML = `
+                    <div class="flex flex-col items-center justify-center py-16 text-center text-slate-500">
+                        <i class="fa-solid fa-face-smile text-3xl mb-2 text-slate-600"></i>
+                        <p class="text-xs font-medium text-slate-400">此分類目前沒有對象</p>
+                    </div>
+                `;
                 return;
-            } else {
-                emptyState.classList.add('hidden');
-                emptyState.classList.remove('flex');
             }
 
-            rawList.forEach(function(user) {
-                var card = document.createElement('div');
-                card.className = "bg-slate-900/90 border border-slate-700/60 rounded-xl p-3 flex items-center justify-between hover:border-slate-600 transition";
-                
-                var avatarUrl = user.profile_pic_url || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(user.username) + '&background=random');
-
-                card.innerHTML = 
-                    '<div class="flex items-center gap-3 overflow-hidden">' +
-                        '<img src="' + avatarUrl + '" referrerpolicy="no-referrer" onerror="this.src=\'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.username) + '&background=0D8ABC&color=fff\'" class="w-10 h-10 rounded-full object-cover border border-slate-700 shrink-0" alt="Avatar">' +
-                        '<div class="truncate">' +
-                            '<a href="https://instagram.com/' + user.username + '" target="_blank" rel="noopener noreferrer" class="font-bold text-xs text-slate-100 hover:text-pink-400 transition flex items-center gap-1">' +
-                                '<span>@' + user.username + '</span>' +
-                                '<i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-slate-500"></i>' +
-                            '</a>' +
-                            '<p class="text-[11px] text-slate-400 truncate">' + (user.full_name || '無名稱') + '</p>' +
-                        '</div>' +
-                    '</div>' +
-                    '<a href="https://instagram.com/' + user.username + '" target="_blank" rel="noopener noreferrer" class="bg-slate-800 hover:bg-pink-600 text-slate-200 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 ml-2 border border-slate-700 hover:border-pink-500">' +
-                        '開啟 IG' +
-                    '</a>';
-                userList.appendChild(card);
+            list.forEach(function(username) {
+                const item = document.createElement('div');
+                item.className = 'bg-slate-900/80 border border-slate-700/60 rounded-xl p-3 flex items-center justify-between gap-3 hover:border-pink-500/40 transition';
+                item.innerHTML = `
+                    <div class="flex items-center space-x-3 min-w-0">
+                        <div class="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 font-bold text-xs shrink-0">
+                            ${username.charAt(0).toUpperCase()}
+                        </div>
+                        <div class="min-w-0">
+                            <h4 class="font-semibold text-xs text-white truncate">@${username}</h4>
+                            <p class="text-[10px] text-slate-400">Instagram 用戶</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <a href="https://instagram.com/${username}" target="_blank" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 transition flex items-center gap-1">
+                            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            <span>查看</span>
+                        </a>
+                    </div>
+                `;
+                userListContainer.appendChild(item);
             });
         }
+
+        // --- Modal Event Listeners ---
+        showGuideBtn.addEventListener('click', function() { guideModal.classList.remove('hidden'); });
+        closeGuideBtn.addEventListener('click', function() { guideModal.classList.add('hidden'); });
+        closeGuideFooterBtn.addEventListener('click', function() { guideModal.classList.add('hidden'); });
+
+        pwaHelpBtn.addEventListener('click', function() { pwaModal.classList.remove('hidden'); });
+        closePwaBtn.addEventListener('click', function() { pwaModal.classList.add('hidden'); });
+        closePwaFooterBtn.addEventListener('click', function() { pwaModal.classList.add('hidden'); });
+
+        // Close modals on outside click
+        window.addEventListener('click', function(e) {
+            if(e.target === guideModal) guideModal.classList.add('hidden');
+            if(e.target === pwaModal) pwaModal.classList.add('hidden');
+        });
+
+        // Initialize on load
+        window.onload = function() {
+            updateSnapshotSelector();
+            renderAnalysis();
+        };
     </script>
 </body>
 </html>
